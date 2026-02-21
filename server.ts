@@ -161,15 +161,13 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         }),
       });
       const voiceData = await voiceRes.json();
-      // Clean response - remove thinking tags
-      const cleanResponse = (text: string) => text
-        .replace(/<think>[\s\S]*?</think>/g, "")
-        .replace(/<think>[\s\S]*?</think>/gi, "")
-        .replace(/<think>[\s\S]*?</think>/g, "")
-        .trim();
-
-      const voiceResponseRaw = cleanResponse(voiceData.choices?.[0]?.message?.content || noInfo);
-      // Cap voice at 25 words for TTS
+      // Strip thinking tags and cap at 25 words
+      const voiceResponseRaw = (voiceData.choices?.[0]?.message?.content || noInfo)
+        .replace(/<think>[\s\S]*?</think>/gi, "");
+      const voiceWords = voiceResponseRaw.split(/\s+/);
+      const voiceResponse = voiceWords.length > 25
+        ? voiceWords.slice(0, 25).join(" ") + "."
+        : voiceResponseRaw;
       const voiceWords = voiceResponseRaw.split(/\s+/);
       const voiceResponse = voiceWords.length > 25 
         ? voiceWords.slice(0, 25).join(" ") + "."
@@ -192,7 +190,8 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         }),
       });
       const textData = await textRes.json();
-      const textSummary = cleanResponse(textData.choices?.[0]?.message?.content || noInfo);
+      const textSummary = (textData.choices?.[0]?.message?.content || noInfo)
+        .replace(/<think>[\s\S]*?</think>/gi, "");
 
       console.log("[MiniMax] Voice:", voiceResponse.slice(0, 60));
       console.log("[MiniMax] Text:", textSummary.slice(0, 60));
