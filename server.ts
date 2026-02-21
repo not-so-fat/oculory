@@ -161,7 +161,12 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         }),
       });
       const voiceData = await voiceRes.json();
-      const voiceResponse = voiceData.choices?.[0]?.message?.content || noInfo;
+      const voiceResponseRaw = voiceData.choices?.[0]?.message?.content || noInfo;
+      // Cap voice at 25 words for TTS
+      const voiceWords = voiceResponseRaw.split(/\s+/);
+      const voiceResponse = voiceWords.length > 25 
+        ? voiceWords.slice(0, 25).join(" ") + "."
+        : voiceResponseRaw;
 
       // 2. Text summary - detailed, for chat display
       const textRes = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
