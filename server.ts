@@ -7,7 +7,8 @@ import { KnowledgeBaseSecurity } from "./armoriq/security.js";
 
 const VAPI_API_KEY = process.env.VAPI_API_KEY || "";
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || "";
-const ARMORIQ_API_KEY = process.env.ARMORIQ_API_KEY || "";
+// Always mock mode for demo - real ArmorIQ integration later
+const ARMORIQ_API_KEY = "";
 
 // Lexicon: support multiple sources
 // 1. data/ folder (local dev)
