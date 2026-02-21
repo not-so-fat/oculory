@@ -47,22 +47,6 @@ class ArmorIQClient {
       allowed: true,
       policies_checked: ["mock_policy"],
     };
-        return {
-          allowed: false,
-          reason: `ArmorIQ API error: ${response.statusText}`,
-          policies_checked: [],
-        };
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error("[ArmorIQ] Error:", error);
-      return {
-        allowed: false,
-        reason: "ArmorIQ service unavailable",
-        policies_checked: [],
-      };
-    }
   }
 
   // Capture intent before action
