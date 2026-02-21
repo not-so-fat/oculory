@@ -126,23 +126,26 @@ const MINIMAX_BASE_URL = "https://api.minimax.io/v1";
 const MINIMAX_MODEL = "MiniMax-M2.5";
 
 interface GeneratedResponse {
-  voiceSummary: string;
-  fullMarkdown: string;
+  voiceResponse: string;   // Conversational response for voice
+  textSummary: string;     // Detailed summary for text/chat display
 }
 
 async function generateResponse(query: string, results: Doc[]): Promise<GeneratedResponse> {
   const noInfo = "I don't have information about that in the knowledge base.";
   if (results.length === 0) {
-    return { voiceSummary: noInfo, fullMarkdown: noInfo };
+    return { voiceResponse: noInfo, textSummary: noInfo };
   }
 
+  // More context: top 8 docs, 1500 chars each
   const context = results
-    .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 1200)}`)
+    .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 1500)}`)
     .join("\n\n");
 
+  // Call MiniMax twice: once for voice, once for text
   if (MINIMAX_API_KEY) {
     try {
-      const response = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
+      // 1. Voice response - conversational, natural dialogue
+      const voiceRes = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -151,56 +154,47 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful voice assistant. Reply with exactly two parts separated by \"---\". First part: 2-3 sentence summary for voice (no markdown). Second part: detailed answer in markdown. Keep both parts grounded in the provided context." },
-            { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
+            { role: "system", content: "You are having a friendly voice conversation. Respond naturally as if you're talking to a friend. Answer the user's question based on the context. Keep it conversational, 1-2 sentences, under 20 words." },
+            { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
+          ],
+          temperature: 0.8,
+        }),
+      });
+      const voiceData = await voiceRes.json();
+      const voiceResponse = voiceData.choices?.[0]?.message?.content || noInfo;
+
+      // 2. Text summary - detailed, for chat display
+      const textRes = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${MINIMAX_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: MINIMAX_MODEL,
+          messages: [
+            { role: "system", content: "You are a helpful assistant. Provide a detailed answer in markdown format. Include specific names, dates, numbers, and outcomes when available." },
+            { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
           ],
           temperature: 0.7,
         }),
       });
+      const textData = await textRes.json();
+      const textSummary = textData.choices?.[0]?.message?.content || noInfo;
 
-      const data = await response.json();
-      if (data.choices && data.choices[0]) {
-        const raw = data.choices[0].message.content || "";
-        // Find the LAST "---" separator (more reliable)
-        const idx = raw.lastIndexOf("\n---\n");
-        let voiceSummary: string;
-        let fullMarkdown: string;
-        
-        if (idx >= 0) {
-          // Voice summary is everything BEFORE ---
-          let potentialSummary = raw.slice(0, idx).replace(/\n/g, " ").trim();
-          // Clean up: remove preamble, remove trailing ---
-          potentialSummary = potentialSummary
-            .replace(/^(Here is|Sure,?|The summary|Here's a|Answer:|Response:|Summary:)\s*/i, "")
-            .replace(/\s*---\s*$/, "")
-            .trim();
-          // Take first 200 chars (not last) to keep the beginning
-          voiceSummary = potentialSummary.slice(0, 200);
-          fullMarkdown = raw.slice(idx + 6).trim();
-        } else {
-          // No separator found, use fallback logic
-          voiceSummary = raw.slice(0, 200).replace(/\n/g, " ").trim();
-          fullMarkdown = raw;
-        }
-        
-        // Cap at ~40 words (~15 sec when read aloud)
-        const words = voiceSummary.split(/\s+/);
-        if (words.length > 40) voiceSummary = words.slice(0, 40).join(" ") + ".";
-        
-        console.log("[MiniMax] Parsed voice:", voiceSummary.slice(0, 80));
-        return { voiceSummary, fullMarkdown };
-      }
+      console.log("[MiniMax] Voice:", voiceResponse.slice(0, 60));
+      console.log("[MiniMax] Text:", textSummary.slice(0, 60));
+      return { voiceResponse, textSummary };
     } catch (e) {
       console.error("MiniMax error:", e);
     }
   }
 
+  // Fallback
   const top = results[0];
-  const content = top.content.slice(0, 300).replace(/#{1,6}\s/g, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim();
-  const fallback = `${content} (Source: ${top.title})`;
-  const fallbackWords = fallback.split(/\s+/);
-  const shortFallback = fallbackWords.length > 40 ? fallbackWords.slice(0, 40).join(" ") + "." : fallback;
-  return { voiceSummary: shortFallback, fullMarkdown: fallback };
+  const content = top.content.slice(0, 500).replace(/#{1,6}\s/g, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim();
+  const fallback = `${content}\n\n(Source: ${top.title})`;
+  return { voiceResponse: fallback.slice(0, 150), textSummary: fallback };
 }
 
 // Main app
@@ -689,13 +683,13 @@ app.post("/api/query", async (req, res) => {
   const results = searchDocs(docs, query);
 
   // Step 3: Generate response (short for voice, full markdown for chat)
-  const { voiceSummary, fullMarkdown } = await generateResponse(query, results);
+  const { voiceResponse, textSummary } = await generateResponse(query, results);
 
   res.json({
     success: true,
     query,
-    response: fullMarkdown,
-    voiceSummary,
+    response: textSummary,
+    voiceSummary: voiceResponse,
     sources: results.map(r => ({ title: r.title, layer: r.layer })),
     security: "approved"
   });
@@ -753,10 +747,10 @@ app.post("/vapi/webhook", async (req, res) => {
 
         // Process query
         const results = searchDocs(docs, query);
-        const { voiceSummary } = await generateResponse(query, results);
+        const { voiceResponse } = await generateResponse(query, results);
 
-        console.log("[VAPI] Response:", voiceSummary);
-        res.json({ response: voiceSummary });
+        console.log("[VAPI] Response:", voiceResponse);
+        res.json({ response: voiceResponse });
         return;
       }
       break;
