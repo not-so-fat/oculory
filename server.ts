@@ -116,7 +116,7 @@ function searchDocs(docs: Doc[], query: string): Doc[] {
     })
     .filter((s) => s.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
+    .slice(0, 5)
     .map((s) => s.doc);
 }
 
@@ -137,7 +137,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
   }
 
   const context = results
-    .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 500)}`)
+    .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 1200)}`)
     .join("\n\n");
 
   if (MINIMAX_API_KEY) {
@@ -151,7 +151,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: a single short voice summary (max 30 words, under 15 seconds when read aloud). Format like: \"Talked about [topic]. Key insights: [one or two points] and more.\" No markdown, no lists. Part 2: detailed answer in markdown with bullet points or sections as needed." },
+            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: a single short voice summary (max 30 words, under 15 seconds when read aloud). Format like: \"Talked about [topic]. Key insights: [one or two points] and more.\" No markdown, no lists. Part 2: detailed answer in markdown. When the context mentions specific dates (e.g., 'January', 'last week'), explicitly explain what happened on those dates. Include specific details, names, and outcomes." },
             { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
           ],
           temperature: 0.7,
@@ -508,10 +508,15 @@ const HTML = `<!DOCTYPE html>
     }
     
     function speak(text) {
-      if (!text || !window.speechSynthesis) return;
+      if (!text || !window.speechSynthesis) {
+        console.log("TTS skipped: no text or no speechSynthesis");
+        return;
+      }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 0.95;
+      u.lang = "en-US";
+      u.onerror = (e) => console.log("TTS error:", e.error);
       window.speechSynthesis.speak(u);
     }
     
