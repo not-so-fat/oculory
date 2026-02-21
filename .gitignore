@@ -1,3 +1,6 @@
+# Temporal/one-off files
+.temporal/
+
 # Dependencies
 node_modules/
 
