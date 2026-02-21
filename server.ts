@@ -121,26 +121,52 @@ function searchDocs(docs: Doc[], query: string): Doc[] {
 }
 
 // Generate response (simple fallback)
-function generateResponse(results: Doc[]): string {
+// MiniMax API config
+const MINIMAX_BASE_URL = "https://api.minimax.io/v1";
+const MINIMAX_MODEL = "MiniMax-M2.5";
+
+async function generateResponse(query: string, results: Doc[]): Promise<string> {
   if (results.length === 0) {
     return "I don't have information about that in the knowledge base.";
   }
 
-  // Take the most relevant result
-  const top = results[0];
-  
-  // Extract key info
-  const content = top.content.slice(0, 300);
-  const source = top.title;
-  
-  // Clean up markdown
-  const clean = content
-    .replace(/#{1,6}\s/g, '')
-    .replace(/\*\*/g, '')
-    .replace(/\n+/g, ' ')
-    .trim();
+  // Prepare context from search results
+  const context = results
+    .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 500)}`)
+    .join("\n\n");
 
-  return `${clean} (Source: ${source})`;
+  // Call MiniMax for summarization
+  if (MINIMAX_API_KEY) {
+    try {
+      const response = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${MINIMAX_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: MINIMAX_MODEL,
+          messages: [
+            { role: "system", content: "You are a helpful voice assistant. Summarize the context into a clear, conversational answer. Keep it brief (2-3 sentences)." },
+            { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
+          ],
+          temperature: 0.7,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.choices && data.choices[0]) {
+        return data.choices[0].message.content;
+      }
+    } catch (e) {
+      console.error("MiniMax error:", e);
+    }
+  }
+
+  // Fallback: simple formatting
+  const top = results[0];
+  const content = top.content.slice(0, 300).replace(/#{1,6}\s/g, '').replace(/\*\*/g, '').replace(/\n+/g, ' ').trim();
+  return `${content} (Source: ${top.title})`;
 }
 
 // Main app
