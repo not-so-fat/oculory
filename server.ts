@@ -481,7 +481,6 @@ const HTML = `<!DOCTYPE html>
             status.textContent = 'Say something and click mic to stop';
             status.className = 'status connected';
           };
-          };
           
           recognition.onerror = (event) => {
             console.error('Speech error:', event.error);
@@ -499,6 +498,10 @@ const HTML = `<!DOCTYPE html>
           recognition.stop();
         }
       }
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendMessage();
     }
   </script>
 </body>
