@@ -151,7 +151,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: one or two short sentences for voice (no markdown). Part 2: detailed answer in markdown with bullet points or sections as needed." },
+            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: a single short voice summary (max 30 words, under 15 seconds when read aloud). Format like: \"Talked about [topic]. Key insights: [one or two points] and more.\" No markdown, no lists. Part 2: detailed answer in markdown with bullet points or sections as needed." },
             { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
           ],
           temperature: 0.7,
@@ -162,7 +162,10 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
       if (data.choices && data.choices[0]) {
         const raw = data.choices[0].message.content || "";
         const idx = raw.indexOf("\n---\n");
-        const voiceSummary = idx >= 0 ? raw.slice(0, idx).replace(/\n/g, " ").trim() : raw.slice(0, 200).replace(/\n/g, " ").trim();
+        let voiceSummary = idx >= 0 ? raw.slice(0, idx).replace(/\n/g, " ").trim() : raw.slice(0, 200).replace(/\n/g, " ").trim();
+        // Cap at ~40 words (~15 sec when read aloud)
+        const words = voiceSummary.split(/\s+/);
+        if (words.length > 40) voiceSummary = words.slice(0, 40).join(" ") + ".";
         const fullMarkdown = idx >= 0 ? raw.slice(idx + 6).trim() : raw;
         return { voiceSummary, fullMarkdown };
       }
@@ -174,7 +177,9 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
   const top = results[0];
   const content = top.content.slice(0, 300).replace(/#{1,6}\s/g, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim();
   const fallback = `${content} (Source: ${top.title})`;
-  return { voiceSummary: fallback.slice(0, 150), fullMarkdown: fallback };
+  const fallbackWords = fallback.split(/\s+/);
+  const shortFallback = fallbackWords.length > 40 ? fallbackWords.slice(0, 40).join(" ") + "." : fallback;
+  return { voiceSummary: shortFallback, fullMarkdown: fallback };
 }
 
 // Main app
