@@ -161,7 +161,14 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         }),
       });
       const voiceData = await voiceRes.json();
-      const voiceResponseRaw = voiceData.choices?.[0]?.message?.content || noInfo;
+      // Clean response - remove thinking tags
+      const cleanResponse = (text: string) => text
+        .replace(/<think>[\s\S]*?</think>/g, "")
+        .replace(/<think>[\s\S]*?</think>/gi, "")
+        .replace(/<think>[\s\S]*?</think>/g, "")
+        .trim();
+
+      const voiceResponseRaw = cleanResponse(voiceData.choices?.[0]?.message?.content || noInfo);
       // Cap voice at 25 words for TTS
       const voiceWords = voiceResponseRaw.split(/\s+/);
       const voiceResponse = voiceWords.length > 25 
@@ -185,7 +192,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         }),
       });
       const textData = await textRes.json();
-      const textSummary = textData.choices?.[0]?.message?.content || noInfo;
+      const textSummary = cleanResponse(textData.choices?.[0]?.message?.content || noInfo);
 
       console.log("[MiniMax] Voice:", voiceResponse.slice(0, 60));
       console.log("[MiniMax] Text:", textSummary.slice(0, 60));
