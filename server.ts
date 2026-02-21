@@ -9,8 +9,11 @@ const VAPI_API_KEY = process.env.VAPI_API_KEY || "";
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || "";
 const ARMORIQ_API_KEY = process.env.ARMORIQ_API_KEY || "";
 
-// Lexicon config - use data/ folder (deployed with app) or local path for dev
+// Lexicon: support multiple sources
+// 1. data/ folder (local dev)
+// 2. GIST_URL env var (private gist for production)
 const LEXICON_PATH = process.env.LEXICON_PATH || path.join(process.cwd(), "data");
+const GIST_URL = process.env.GIST_URL || "";
 
 interface Doc {
   layer: string;
@@ -37,8 +40,23 @@ function getLayerFromPath(filePath: string): string {
   return "metadata";
 }
 
-// Load knowledge base
-function loadDocuments(): Doc[] {
+// Load knowledge base (supports local or gist)
+async function loadDocuments(): Promise<Doc[]> {
+  // If GIST_URL is set, fetch from gist
+  if (GIST_URL) {
+    console.log("Loading from gist...");
+    try {
+      const response = await fetch(GIST_URL);
+      const data = await response.json();
+      console.log(`Loaded ${data.length} documents from gist`);
+      return data as Doc[];
+    } catch (e) {
+      console.error("Failed to load from gist:", e);
+      return [];
+    }
+  }
+
+  // Otherwise load from local folder
   const layers = ["Memory", "People", "Meetings", "Metadata", "Transcripts"];
   const docs: Doc[] = [];
 
@@ -118,13 +136,34 @@ function generateResponse(results: Doc[]): string {
 const app = express();
 app.use(express.json());
 
-// Initialize security and documents
-const security = new KnowledgeBaseSecurity();
-const docs = loadDocuments();
+// Initialize security and documents (will load async)
+let docs: Doc[] = [];
+let security: KnowledgeBaseSecurity;
 
-console.log(`Loaded ${docs.length} documents from Lexicon`);
+async function init() {
+  security = new KnowledgeBaseSecurity();
+  docs = await loadDocuments();
+  console.log(`Loaded ${docs.length} documents from Lexicon`);
+  
+  // Start server after loading docs
+  app.listen(PORT, () => {
+    console.log(`
+╔══════════════════════════════════════════════════════════════╗
+║          Oculory Voice Agent - Ready!                    ║
+╠══════════════════════════════════════════════════════════════╣
+║  Server:      http://localhost:${PORT}                        ║
+║  API:        http://localhost:${PORT}/api/query              ║
+║  VAPI:       http://localhost:${PORT}/vapi/webhook           ║
+╠══════════════════════════════════════════════════════════════╣
+║  ArmorIQ:    ${ARMORIQ_API_KEY ? "Enabled" : "Disabled (mock mode)"}                              ║
+║  VAPI:       ${VAPI_API_KEY ? "Enabled" : "Disabled"}                              ║
+║  Documents:  ${docs.length}                                       ║
+╚══════════════════════════════════════════════════════════════╝
+`);
+  });
+}
 
-// Health check
+// Health check (works even before init)
 app.get("/", (req, res) => {
   res.json({ 
     status: "ok", 
@@ -251,3 +290,6 @@ Quick test:
     -d '{"query": "What about AI?", "userId": "user_001"}'
 `);
 });
+
+// Start
+init();
