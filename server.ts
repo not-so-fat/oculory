@@ -172,27 +172,43 @@ const HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Oculory - Voice Agent</title>
   <style>
+    :root {
+      --cyber-dark: #0A0A07;
+      --cyber-teal: #92E4DD;
+      --cyber-gold: #C4B643;
+      --card-red: #F9386D;
+      --card-green: #39FF14;
+      --card-gray: #E0E0E0;
+      --card-orange: #FF6B00;
+      --font-sans: Monaco, 'Nunito Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: Monaco, 'SF Mono', Menlo, monospace;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      font-family: var(--font-sans);
+      background: var(--cyber-dark);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: var(--cyber-teal);
     }
     .container {
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
+      background: rgba(146, 228, 221, 0.05);
+      border: 1px solid var(--cyber-teal);
+      border-radius: 12px;
       padding: 40px;
       max-width: 500px;
       width: 90%;
       text-align: center;
     }
-    h1 { font-size: 2.5rem; margin-bottom: 10px; }
-    .subtitle { color: #aaa; margin-bottom: 30px; }
+    h1 { 
+      font-size: 2.5rem; 
+      margin-bottom: 10px; 
+      color: var(--cyber-gold);
+      font-family: var(--font-mono);
+    }
+    .subtitle { color: var(--card-gray); margin-bottom: 30px; }
     
     /* Invite Section */
     #invite-section { display: block; }
@@ -200,28 +216,46 @@ const HTML = `<!DOCTYPE html>
       width: 100%;
       padding: 15px;
       font-size: 18px;
-      border: none;
-      border-radius: 10px;
+      border: 1px solid var(--cyber-teal);
+      border-radius: 8px;
       margin-bottom: 15px;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
+      background: transparent;
+      color: var(--cyber-teal);
       text-align: center;
+      font-family: var(--font-mono);
     }
-    input::placeholder { color: #888; }
+    input::placeholder { color: var(--card-gray); }
+    input:focus { outline: none; border-color: var(--cyber-gold); }
     button {
       width: 100%;
       padding: 15px;
       font-size: 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
       cursor: pointer;
       font-weight: bold;
-      transition: transform 0.2s;
+      transition: all 0.2s;
+      font-family: var(--font-mono);
     }
     button:hover { transform: scale(1.02); }
-    .btn-primary { background: #4f46e5; color: #fff; }
-    .btn-voice { background: #10b981; color: #fff; margin-top: 10px; }
-    .error { color: #ef4444; margin-top: 10px; }
+    .btn-primary { 
+      background: var(--cyber-teal); 
+      color: var(--cyber-dark); 
+    }
+    .btn-primary:hover { 
+      background: var(--cyber-gold); 
+    }
+    .btn-voice { 
+      background: transparent; 
+      border: 2px solid var(--cyber-teal);
+      color: var(--cyber-teal); 
+      margin-top: 10px; 
+    }
+    .btn-voice:hover { 
+      border-color: var(--cyber-gold);
+      color: var(--cyber-gold);
+    }
+    .error { color: var(--card-red); margin-top: 10px; }
     
     /* Chat Section */
     #chat-section { display: none; }
@@ -235,13 +269,15 @@ const HTML = `<!DOCTYPE html>
       padding: 5px 15px;
       border-radius: 20px;
       font-size: 14px;
+      font-family: var(--font-mono);
     }
-    .status.connected { background: #10b981; }
-    .status.listening { background: #f59e0b; }
+    .status.connected { background: var(--card-green); color: var(--cyber-dark); }
+    .status.listening { background: var(--card-orange); color: var(--cyber-dark); }
     
     #messages {
       background: rgba(0,0,0,0.3);
-      border-radius: 10px;
+      border: 1px solid var(--card-gray);
+      border-radius: 8px;
       padding: 20px;
       min-height: 200px;
       max-height: 300px;
@@ -257,8 +293,14 @@ const HTML = `<!DOCTYPE html>
       border-radius: 15px;
       max-width: 80%;
     }
-    .message.user .bubble { background: #4f46e5; }
-    .message.bot .bubble { background: rgba(255,255,255,0.2); }
+    .message.user .bubble { 
+      background: var(--cyber-gold); 
+      color: var(--cyber-dark);
+    }
+    .message.bot .bubble { 
+      background: rgba(146, 228, 221, 0.1); 
+      border: 1px solid var(--cyber-teal);
+    }
     .sources { font-size: 12px; color: #888; margin-top: 5px; }
     
     #voice-btn {
@@ -268,8 +310,20 @@ const HTML = `<!DOCTYPE html>
       font-size: 24px;
       margin: 20px auto;
       display: block;
+      border: 2px solid var(--cyber-teal);
+      background: transparent;
+      color: var(--cyber-teal);
     }
-    #voice-btn.listening { background: #ef4444; animation: pulse 1s infinite; }
+    #voice-btn.listening { 
+      background: var(--card-red); 
+      border-color: var(--card-red);
+      color: var(--cyber-dark);
+      animation: pulse 1s infinite; 
+    }
+    #voice-btn:hover {
+      border-color: var(--cyber-gold);
+      color: var(--cyber-gold);
+    }
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.1); }
