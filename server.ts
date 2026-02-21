@@ -403,7 +403,7 @@ const HTML = `<!DOCTYPE html>
 <body>
   <div class="container">
     <h1>Oculory</h1>
-    <p class="subtitle">Ask questions about your friend's knowledge</p>
+    <p class="subtitle">Ask questions about Yusuke's knowledge</p>
     
     <div id="invite-section">
       <input type="text" id="invite-code" placeholder="Enter invite code" />
