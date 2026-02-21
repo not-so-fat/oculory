@@ -483,7 +483,8 @@ const HTML = `<!DOCTYPE html>
         body: JSON.stringify({query: message, userId})
       });
       const data = await res.json();
-      
+      console.log("API response:", data);
+
       if (data.success) {
         addMessage(data.response, 'bot', data.sources, data.voiceSummary);
       } else {
@@ -492,6 +493,7 @@ const HTML = `<!DOCTYPE html>
     }
     
     function addMessage(text, type, sources = [], voiceSummary = null) {
+      console.log("addMessage() called, voiceSummary:", voiceSummary);
       const messages = document.getElementById('messages');
       const div = document.createElement('div');
       div.className = 'message ' + type;
@@ -503,10 +505,11 @@ const HTML = `<!DOCTYPE html>
         bubble.textContent = text || '';
       }
       if (type === 'bot' && voiceSummary) {
+        console.log("Creating play button, voiceSummary:", voiceSummary);
         const playBtn = document.createElement('div');
         playBtn.className = 'play-voice';
         playBtn.textContent = '🔊 Play voice';
-        playBtn.onclick = () => speak(voiceSummary);
+        playBtn.onclick = () => { console.log("Play button clicked"); speak(voiceSummary); };
         bubble.appendChild(playBtn);
       }
       div.appendChild(bubble);
@@ -525,16 +528,27 @@ const HTML = `<!DOCTYPE html>
     }
     
     function speak(text) {
-      if (!text || !window.speechSynthesis) {
-        console.log("TTS skipped: no text or no speechSynthesis");
+      console.log("speak() called with:", text);
+      if (!text) {
+        console.log("TTS skipped: no text");
         return;
       }
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
-      u.lang = "en-US";
-      u.onerror = (e) => console.log("TTS error:", e.error);
-      window.speechSynthesis.speak(u);
+      if (!window.speechSynthesis) {
+        console.log("TTS skipped: no speechSynthesis");
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 0.95;
+        u.lang = "en-US";
+        u.onstart = () => console.log("TTS started");
+        u.onerror = (e) => console.log("TTS error:", e.error);
+        window.speechSynthesis.speak(u);
+        console.log("TTS speak() called");
+      } catch(e) {
+        console.log("TTS exception:", e);
+      }
     }
     
     function handleKeyPress(e) {
