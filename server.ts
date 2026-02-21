@@ -583,7 +583,7 @@ app.post("/api/query", async (req, res) => {
   const results = searchDocs(docs, query);
 
   // Step 3: Generate response
-  const response = generateResponse(results);
+  const response = await generateResponse(query, results);
 
   res.json({
     success: true,
@@ -646,7 +646,7 @@ app.post("/vapi/webhook", async (req, res) => {
 
         // Process query
         const results = searchDocs(docs, query);
-        const response = generateResponse(results);
+        const response = await generateResponse(query, results);
 
         // Return response for VAPI to speak
         console.log("[VAPI] Response:", response);
