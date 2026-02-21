@@ -126,11 +126,21 @@ function generateResponse(results: Doc[]): string {
     return "I don't have information about that in the knowledge base.";
   }
 
-  const context = results
-    .map((r) => `${r.title} (${r.layer}): ${r.content.slice(0, 150)}...`)
-    .join("\n\n");
+  // Take the most relevant result
+  const top = results[0];
+  
+  // Extract key info
+  const content = top.content.slice(0, 300);
+  const source = top.title;
+  
+  // Clean up markdown
+  const clean = content
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/\n+/g, ' ')
+    .trim();
 
-  return `Based on the knowledge base:\n\n${context}`;
+  return `${clean} (Source: ${source})`;
 }
 
 // Main app
