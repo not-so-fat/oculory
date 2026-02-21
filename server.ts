@@ -419,7 +419,7 @@ const HTML = `<!DOCTYPE html>
       
       <div id="messages">
         <div class="message bot">
-          <div class="bubble">Hi! Ask me anything about your friend's knowledge base.</div>
+          <div class="bubble">Hi! Ask me anything about Yusuke's knowledge base.</div>
         </div>
       </div>
       
@@ -731,7 +731,7 @@ app.post("/vapi/webhook", async (req, res) => {
     case "conversation-start":
       // Return welcome message
       res.json({
-        response: "Hi! Ask me anything about your friend's knowledge base."
+        response: "Hi! Ask me anything about Yusuke's knowledge base."
       });
       return;
 
