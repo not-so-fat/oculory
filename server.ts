@@ -174,8 +174,8 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
             .replace(/^(Here is|Sure,?|The summary|Here's a|Answer:|Response:|Summary:)\s*/i, "")
             .replace(/\s*---\s*$/, "")
             .trim();
-          // Take last 200 chars to avoid preamble
-          voiceSummary = potentialSummary.slice(-200);
+          // Take first 200 chars (not last) to keep the beginning
+          voiceSummary = potentialSummary.slice(0, 200);
           fullMarkdown = raw.slice(idx + 6).trim();
         } else {
           // No separator found, use fallback logic
