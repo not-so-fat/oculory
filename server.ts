@@ -450,29 +450,30 @@ const HTML = `<!DOCTYPE html>
           recognition.onstart = () => {
             isListening = true;
             btn.classList.add('listening');
-            btn.textContent = '🔴';
+            btn.textContent = '⏹️';
             status.textContent = 'Listening...';
             status.className = 'status listening';
           };
           
           recognition.onresult = (event) => {
-            // Get the final result (not interim)
+            // Don't auto-send - just show the recorded text
             for (let i = 0; i < event.results.length; i++) {
               if (event.results[i].isFinal) {
                 const transcript = event.results[i][0].transcript;
                 input.value = transcript;
-                sendMessage();
                 break;
               }
             }
           };
           
           recognition.onend = () => {
+            // Don't auto-send - just show the recorded text
             isListening = false;
             btn.classList.remove('listening');
             btn.textContent = '🎤';
-            status.textContent = 'Ready';
+            status.textContent = 'Say something and click mic to stop';
             status.className = 'status connected';
+          };
           };
           
           recognition.onerror = (event) => {
