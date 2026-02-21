@@ -370,6 +370,13 @@ const HTML = `<!DOCTYPE html>
       const code = document.getElementById('invite-code').value;
       const errorEl = document.getElementById('invite-error');
       
+      if (!code) {
+        errorEl.textContent = 'Please enter a code';
+        return;
+      }
+      
+      console.log('Verifying code:', code);
+      
       try {
         const res = await fetch('/api/verify-invite', {
           method: 'POST',
