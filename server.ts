@@ -167,10 +167,13 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         let fullMarkdown: string;
         
         if (idx >= 0) {
-          // Extract voice summary - take last 200 chars before --- (after cleaning)
+          // Voice summary is everything BEFORE ---
           let potentialSummary = raw.slice(0, idx).replace(/\n/g, " ").trim();
-          // Remove any preamble like "Here is..." or "Sure..." or "The summary is..."
-          potentialSummary = potentialSummary.replace(/^(Here is|Sure,?|The summary|Here's a|Answer:|Response:)\s*/i, "");
+          // Clean up: remove preamble, remove trailing ---
+          potentialSummary = potentialSummary
+            .replace(/^(Here is|Sure,?|The summary|Here's a|Answer:|Response:|Summary:)\s*/i, "")
+            .replace(/\s*---\s*$/, "")
+            .trim();
           // Take last 200 chars to avoid preamble
           voiceSummary = potentialSummary.slice(-200);
           fullMarkdown = raw.slice(idx + 6).trim();
@@ -562,10 +565,13 @@ const HTML = `<!DOCTYPE html>
         
         u.onstart = () => console.log("TTS started");
         u.onend = () => { console.log("TTS ended"); isSpeaking = false; };
-        u.onerror = (e) => { console.log("TTS error:", e.error); isSpeaking = false; };
+        u.onerror = (e) => { console.log("TTS error:", e.error, "msg:", e.message); isSpeaking = false; };
         
-        window.speechSynthesis.speak(u);
-        console.log("TTS speak() queued, pending:", window.speechSynthesis.pending);
+        // Use setTimeout to ensure browser allows the speech
+        setTimeout(() => {
+          window.speechSynthesis.speak(u);
+          console.log("TTS speak() called");
+        }, 50);
       } catch(e) {
         console.log("TTS exception:", e);
         isSpeaking = false;
