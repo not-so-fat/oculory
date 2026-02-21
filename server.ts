@@ -161,12 +161,29 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
       const data = await response.json();
       if (data.choices && data.choices[0]) {
         const raw = data.choices[0].message.content || "";
-        const idx = raw.indexOf("\n---\n");
-        let voiceSummary = idx >= 0 ? raw.slice(0, idx).replace(/\n/g, " ").trim() : raw.slice(0, 200).replace(/\n/g, " ").trim();
+        // Find the LAST "---" separator (more reliable)
+        const idx = raw.lastIndexOf("\n---\n");
+        let voiceSummary: string;
+        let fullMarkdown: string;
+        
+        if (idx >= 0) {
+          // Extract voice summary - look for "Talked about" or similar pattern
+          const potentialSummary = raw.slice(0, idx).replace(/\n/g, " ").trim();
+          // Find where the actual summary starts (after any extra preamble)
+          const talkMatch = potentialSummary.match(/(Talked about[^.]*\.)/);
+          voiceSummary = talkMatch ? talkMatch[1] : potentialSummary.slice(-200);
+          fullMarkdown = raw.slice(idx + 6).trim();
+        } else {
+          // No separator found, use fallback logic
+          voiceSummary = raw.slice(0, 200).replace(/\n/g, " ").trim();
+          fullMarkdown = raw;
+        }
+        
         // Cap at ~40 words (~15 sec when read aloud)
         const words = voiceSummary.split(/\s+/);
         if (words.length > 40) voiceSummary = words.slice(0, 40).join(" ") + ".";
-        const fullMarkdown = idx >= 0 ? raw.slice(idx + 6).trim() : raw;
+        
+        console.log("[MiniMax] Parsed voice:", voiceSummary.slice(0, 80));
         return { voiceSummary, fullMarkdown };
       }
     } catch (e) {
@@ -380,8 +397,8 @@ const HTML = `<!DOCTYPE html>
     .message.bot .bubble h1, .message.bot .bubble h2, .message.bot .bubble h3 { margin: 0.5em 0; font-size: 1em; }
     .message.bot .bubble ul, .message.bot .bubble ol { margin: 0.5em 0; padding-left: 1.2em; }
     .message.bot .bubble p { margin: 0.4em 0; }
-    .play-voice { margin-top: 8px; font-size: 12px; opacity: 0.9; cursor: pointer; }
-    .play-voice:hover { text-decoration: underline; }
+    .play-voice { margin-top: 10px; font-size: 14px; cursor: pointer; color: var(--cyber-teal); display: inline-flex; align-items: center; gap: 5px; }
+    .play-voice:hover { color: var(--cyber-gold); text-decoration: underline; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
