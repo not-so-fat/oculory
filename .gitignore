@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# Data (keep your knowledge base local)
+data/
+
+# Build
+dist/
+
+# Convex
+.convex/
+node_modules/.cache/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
