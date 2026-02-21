@@ -541,24 +541,32 @@ app.post("/vapi/webhook", async (req, res) => {
 
   switch (type) {
     case "conversation-start":
-      console.log("[VAPI] Call started");
-      break;
+      // Return welcome message
+      res.json({
+        response: "Hi! Ask me anything about your friend's knowledge base."
+      });
+      return;
 
     case "conversation-end":
       console.log("[VAPI] Call ended");
-      break;
+      res.json({ success: true });
+      return;
 
     case "transcript":
       if (message?.type === "user" && message?.content) {
         const query = message.content;
         console.log("[VAPI] User said:", query);
 
-        // Process query through security
+        // Process query
         const results = searchDocs(docs, query);
         const response = generateResponse(results);
 
-        // In production, stream this back via VAPI
+        // Return response for VAPI to speak
         console.log("[VAPI] Response:", response);
+        res.json({
+          response: response.slice(0, 500) // Limit length for voice
+        });
+        return;
       }
       break;
   }
