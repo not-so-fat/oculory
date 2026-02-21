@@ -151,7 +151,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: a single short voice summary (max 30 words, under 15 seconds when read aloud). Format like: \"Talked about [topic]. Key insights: [one or two points] and more.\" No markdown, no lists. Part 2: detailed answer in markdown. When the context mentions specific dates (e.g., 'January', 'last week'), explicitly explain what happened on those dates. Include specific details, names, and outcomes." },
+            { role: "system", content: "You are a helpful voice assistant. Reply with exactly two parts separated by \"---\". First part: 2-3 sentence summary for voice (no markdown). Second part: detailed answer in markdown. Keep both parts grounded in the provided context." },
             { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
           ],
           temperature: 0.7,
@@ -167,11 +167,12 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         let fullMarkdown: string;
         
         if (idx >= 0) {
-          // Extract voice summary - look for "Talked about" or similar pattern
-          const potentialSummary = raw.slice(0, idx).replace(/\n/g, " ").trim();
-          // Find where the actual summary starts (after any extra preamble)
-          const talkMatch = potentialSummary.match(/(Talked about[^.]*\.)/);
-          voiceSummary = talkMatch ? talkMatch[1] : potentialSummary.slice(-200);
+          // Extract voice summary - take last 200 chars before --- (after cleaning)
+          let potentialSummary = raw.slice(0, idx).replace(/\n/g, " ").trim();
+          // Remove any preamble like "Here is..." or "Sure..." or "The summary is..."
+          potentialSummary = potentialSummary.replace(/^(Here is|Sure,?|The summary|Here's a|Answer:|Response:)\s*/i, "");
+          // Take last 200 chars to avoid preamble
+          voiceSummary = potentialSummary.slice(-200);
           fullMarkdown = raw.slice(idx + 6).trim();
         } else {
           // No separator found, use fallback logic
@@ -529,12 +530,12 @@ const HTML = `<!DOCTYPE html>
     }
     
     function speak(text) {
-      console.log("speak() called, isSpeaking:", isSpeaking, "text:", text);
+      console.log("speak() called, isSpeaking:", isSpeaking, "text:", text ? text.slice(0, 50) : "null");
       if (isSpeaking) {
         console.log("TTS skipped: already speaking");
         return;
       }
-      if (!text) {
+      if (!text || !text.trim()) {
         console.log("TTS skipped: no text");
         return;
       }
@@ -546,16 +547,25 @@ const HTML = `<!DOCTYPE html>
         isSpeaking = true;
         window.speechSynthesis.cancel();
         
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 0.9;
-        u.lang = "en-US";
+        const u = new SpeechSynthesisUtterance(text.trim());
+        u.rate = 0.85;
+        u.pitch = 1;
         u.volume = 1;
+        
+        // Try to set a specific voice
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          // Prefer Google US English or similar
+          const enVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("English United States"));
+          if (enVoice) u.voice = enVoice;
+        }
+        
         u.onstart = () => console.log("TTS started");
         u.onend = () => { console.log("TTS ended"); isSpeaking = false; };
         u.onerror = (e) => { console.log("TTS error:", e.error); isSpeaking = false; };
         
         window.speechSynthesis.speak(u);
-        console.log("TTS speak() queued");
+        console.log("TTS speak() queued, pending:", window.speechSynthesis.pending);
       } catch(e) {
         console.log("TTS exception:", e);
         isSpeaking = false;
