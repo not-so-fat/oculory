@@ -437,6 +437,7 @@ const HTML = `<!DOCTYPE html>
   <script>
     let userId = null;
     let isListening = false;
+    let isSpeaking = false;
     
     async function joinChat() {
       const code = document.getElementById('invite-code').value;
@@ -528,7 +529,11 @@ const HTML = `<!DOCTYPE html>
     }
     
     function speak(text) {
-      console.log("speak() called with:", text);
+      console.log("speak() called, isSpeaking:", isSpeaking, "text:", text);
+      if (isSpeaking) {
+        console.log("TTS skipped: already speaking");
+        return;
+      }
       if (!text) {
         console.log("TTS skipped: no text");
         return;
@@ -538,16 +543,22 @@ const HTML = `<!DOCTYPE html>
         return;
       }
       try {
+        isSpeaking = true;
         window.speechSynthesis.cancel();
+        
         const u = new SpeechSynthesisUtterance(text);
-        u.rate = 0.95;
+        u.rate = 0.9;
         u.lang = "en-US";
+        u.volume = 1;
         u.onstart = () => console.log("TTS started");
-        u.onerror = (e) => console.log("TTS error:", e.error);
+        u.onend = () => { console.log("TTS ended"); isSpeaking = false; };
+        u.onerror = (e) => { console.log("TTS error:", e.error); isSpeaking = false; };
+        
         window.speechSynthesis.speak(u);
-        console.log("TTS speak() called");
+        console.log("TTS speak() queued");
       } catch(e) {
         console.log("TTS exception:", e);
+        isSpeaking = false;
       }
     }
     
