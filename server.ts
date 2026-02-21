@@ -125,17 +125,21 @@ function searchDocs(docs: Doc[], query: string): Doc[] {
 const MINIMAX_BASE_URL = "https://api.minimax.io/v1";
 const MINIMAX_MODEL = "MiniMax-M2.5";
 
-async function generateResponse(query: string, results: Doc[]): Promise<string> {
+interface GeneratedResponse {
+  voiceSummary: string;
+  fullMarkdown: string;
+}
+
+async function generateResponse(query: string, results: Doc[]): Promise<GeneratedResponse> {
+  const noInfo = "I don't have information about that in the knowledge base.";
   if (results.length === 0) {
-    return "I don't have information about that in the knowledge base.";
+    return { voiceSummary: noInfo, fullMarkdown: noInfo };
   }
 
-  // Prepare context from search results
   const context = results
     .map((r) => `[${r.title}] (${r.layer}): ${r.content.slice(0, 500)}`)
     .join("\n\n");
 
-  // Call MiniMax for summarization
   if (MINIMAX_API_KEY) {
     try {
       const response = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
@@ -147,7 +151,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<string> 
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful voice assistant. Summarize the context into a clear, conversational answer. Keep it brief (2-3 sentences)." },
+            { role: "system", content: "You are a helpful assistant. Reply with exactly two parts separated by a line that contains only \"---\". Part 1: one or two short sentences for voice (no markdown). Part 2: detailed answer in markdown with bullet points or sections as needed." },
             { role: "user", content: `Question: ${query}\n\nContext:\n${context}` }
           ],
           temperature: 0.7,
@@ -156,17 +160,21 @@ async function generateResponse(query: string, results: Doc[]): Promise<string> 
 
       const data = await response.json();
       if (data.choices && data.choices[0]) {
-        return data.choices[0].message.content;
+        const raw = data.choices[0].message.content || "";
+        const idx = raw.indexOf("\n---\n");
+        const voiceSummary = idx >= 0 ? raw.slice(0, idx).replace(/\n/g, " ").trim() : raw.slice(0, 200).replace(/\n/g, " ").trim();
+        const fullMarkdown = idx >= 0 ? raw.slice(idx + 6).trim() : raw;
+        return { voiceSummary, fullMarkdown };
       }
     } catch (e) {
       console.error("MiniMax error:", e);
     }
   }
 
-  // Fallback: simple formatting
   const top = results[0];
-  const content = top.content.slice(0, 300).replace(/#{1,6}\s/g, '').replace(/\*\*/g, '').replace(/\n+/g, ' ').trim();
-  return `${content} (Source: ${top.title})`;
+  const content = top.content.slice(0, 300).replace(/#{1,6}\s/g, "").replace(/\*\*/g, "").replace(/\n+/g, " ").trim();
+  const fallback = `${content} (Source: ${top.title})`;
+  return { voiceSummary: fallback.slice(0, 150), fullMarkdown: fallback };
 }
 
 // Main app
@@ -364,7 +372,13 @@ const HTML = `<!DOCTYPE html>
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.1); }
     }
+    .message.bot .bubble h1, .message.bot .bubble h2, .message.bot .bubble h3 { margin: 0.5em 0; font-size: 1em; }
+    .message.bot .bubble ul, .message.bot .bubble ol { margin: 0.5em 0; padding-left: 1.2em; }
+    .message.bot .bubble p { margin: 0.4em 0; }
+    .play-voice { margin-top: 8px; font-size: 12px; opacity: 0.9; cursor: pointer; }
+    .play-voice:hover { text-decoration: underline; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -449,17 +463,31 @@ const HTML = `<!DOCTYPE html>
       const data = await res.json();
       
       if (data.success) {
-        addMessage(data.response, 'bot', data.sources);
+        addMessage(data.response, 'bot', data.sources, data.voiceSummary);
       } else {
         addMessage('Error: ' + data.error, 'bot');
       }
     }
     
-    function addMessage(text, type, sources = []) {
+    function addMessage(text, type, sources = [], voiceSummary = null) {
       const messages = document.getElementById('messages');
       const div = document.createElement('div');
       div.className = 'message ' + type;
-      div.innerHTML = '<div class="bubble">' + text + '</div>';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      if (type === 'bot' && typeof marked !== 'undefined') {
+        bubble.innerHTML = marked.parse(text || '');
+      } else {
+        bubble.textContent = text || '';
+      }
+      if (type === 'bot' && voiceSummary) {
+        const playBtn = document.createElement('div');
+        playBtn.className = 'play-voice';
+        playBtn.textContent = '🔊 Play voice';
+        playBtn.onclick = () => speak(voiceSummary);
+        bubble.appendChild(playBtn);
+      }
+      div.appendChild(bubble);
       messages.appendChild(div);
       
       if (sources.length > 0) {
@@ -470,6 +498,16 @@ const HTML = `<!DOCTYPE html>
       }
       
       messages.scrollTop = messages.scrollHeight;
+      
+      if (type === 'bot' && voiceSummary) speak(voiceSummary);
+    }
+    
+    function speak(text) {
+      if (!text || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
     }
     
     function handleKeyPress(e) {
@@ -582,13 +620,14 @@ app.post("/api/query", async (req, res) => {
   // Step 2: Search knowledge base
   const results = searchDocs(docs, query);
 
-  // Step 3: Generate response
-  const response = await generateResponse(query, results);
+  // Step 3: Generate response (short for voice, full markdown for chat)
+  const { voiceSummary, fullMarkdown } = await generateResponse(query, results);
 
   res.json({
     success: true,
     query,
-    response,
+    response: fullMarkdown,
+    voiceSummary,
     sources: results.map(r => ({ title: r.title, layer: r.layer })),
     security: "approved"
   });
@@ -646,13 +685,10 @@ app.post("/vapi/webhook", async (req, res) => {
 
         // Process query
         const results = searchDocs(docs, query);
-        const response = await generateResponse(query, results);
+        const { voiceSummary } = await generateResponse(query, results);
 
-        // Return response for VAPI to speak
-        console.log("[VAPI] Response:", response);
-        res.json({
-          response: response.slice(0, 500) // Limit length for voice
-        });
+        console.log("[VAPI] Response:", voiceSummary);
+        res.json({ response: voiceSummary });
         return;
       }
       break;
