@@ -164,8 +164,251 @@ async function init() {
   });
 }
 
-// Health check (works even before init)
+// HTML UI
+const HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oculory - Voice Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .container {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+    }
+    h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .subtitle { color: #aaa; margin-bottom: 30px; }
+    
+    /* Invite Section */
+    #invite-section { display: block; }
+    input {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      text-align: center;
+    }
+    input::placeholder { color: #888; }
+    button {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: transform 0.2s;
+    }
+    button:hover { transform: scale(1.02); }
+    .btn-primary { background: #4f46e5; color: #fff; }
+    .btn-voice { background: #10b981; color: #fff; margin-top: 10px; }
+    .error { color: #ef4444; margin-top: 10px; }
+    
+    /* Chat Section */
+    #chat-section { display: none; }
+    .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .status {
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    .status.connected { background: #10b981; }
+    .status.listening { background: #f59e0b; }
+    
+    #messages {
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .message { margin-bottom: 15px; }
+    .message.user { text-align: right; }
+    .message .bubble {
+      display: inline-block;
+      padding: 10px 15px;
+      border-radius: 15px;
+      max-width: 80%;
+    }
+    .message.user .bubble { background: #4f46e5; }
+    .message.bot .bubble { background: rgba(255,255,255,0.2); }
+    .sources { font-size: 12px; color: #888; margin-top: 5px; }
+    
+    #voice-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      font-size: 24px;
+      margin: 20px auto;
+      display: block;
+    }
+    #voice-btn.listening { background: #ef4444; animation: pulse 1s infinite; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Oculory</h1>
+    <p class="subtitle">Ask questions about your friend's knowledge</p>
+    
+    <div id="invite-section">
+      <input type="text" id="invite-code" placeholder="Enter invite code" />
+      <button class="btn-primary" onclick="joinChat()">Join Chat</button>
+      <p class="error" id="invite-error"></p>
+    </div>
+    
+    <div id="chat-section">
+      <div class="chat-header">
+        <span id="user-name">Welcome!</span>
+        <span class="status connected" id="status">Ready</span>
+      </div>
+      
+      <div id="messages">
+        <div class="message bot">
+          <div class="bubble">Hi! Ask me anything about your friend's knowledge base.</div>
+        </div>
+      </div>
+      
+      <button id="voice-btn" class="btn-voice" onclick="toggleVoice()">
+        🎤
+      </button>
+      
+      <input type="text" id="chat-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" />
+      <button class="btn-primary" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    let userId = null;
+    let isListening = false;
+    
+    async function joinChat() {
+      const code = document.getElementById('invite-code').value;
+      const errorEl = document.getElementById('invite-error');
+      
+      try {
+        const res = await fetch('/api/verify-invite', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({code})
+        });
+        const data = await res.json();
+        
+        if (data.valid) {
+          userId = data.userId;
+          document.getElementById('invite-section').style.display = 'none';
+          document.getElementById('chat-section').style.display = 'block';
+        } else {
+          errorEl.textContent = 'Invalid invite code';
+        }
+      } catch (e) {
+        errorEl.textContent = 'Error joining chat';
+      }
+    }
+    
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      if (!message) return;
+      
+      addMessage(message, 'user');
+      input.value = '';
+      
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({query: message, userId})
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        addMessage(data.response, 'bot', data.sources);
+      } else {
+        addMessage('Error: ' + data.error, 'bot');
+      }
+    }
+    
+    function addMessage(text, type, sources = []) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'message ' + type;
+      div.innerHTML = '<div class="bubble">' + text + '</div>';
+      messages.appendChild(div);
+      
+      if (sources.length > 0) {
+        const src = document.createElement('div');
+        src.className = 'sources';
+        src.textContent = 'Sources: ' + sources.map(s => s.title).join(', ');
+        messages.appendChild(src);
+      }
+      
+      messages.scrollTop = messages.scrollHeight;
+    }
+    
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendMessage();
+    }
+    
+    function toggleVoice() {
+      const btn = document.getElementById('voice-btn');
+      const status = document.getElementById('status');
+      
+      isListening = !isListening;
+      
+      if (isListening) {
+        btn.classList.add('listening');
+        btn.textContent = '🔴';
+        status.textContent = 'Listening...';
+        status.className = 'status listening';
+        // Voice recognition would go here
+      } else {
+        btn.classList.remove('listening');
+        btn.textContent = '🎤';
+        status.textContent = 'Ready';
+        status.className = 'status connected';
+      }
+    }
+  </script>
+</body>
+</html>`;
+
+// Health check
 app.get("/", (req, res) => {
+  res.send(HTML);
+});
+
+// API: Health JSON
+app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
     documents: docs.length,
