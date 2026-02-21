@@ -444,7 +444,7 @@ const HTML = `<!DOCTYPE html>
         // Start listening
         if (!recognition) {
           recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-          recognition.continuous = false;
+          recognition.continuous = true;
           recognition.interimResults = false;
           
           recognition.onstart = () => {
@@ -456,9 +456,15 @@ const HTML = `<!DOCTYPE html>
           };
           
           recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            input.value = transcript;
-            sendMessage();
+            // Get the final result (not interim)
+            for (let i = 0; i < event.results.length; i++) {
+              if (event.results[i].isFinal) {
+                const transcript = event.results[i][0].transcript;
+                input.value = transcript;
+                sendMessage();
+                break;
+              }
+            }
           };
           
           recognition.onend = () => {
