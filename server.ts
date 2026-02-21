@@ -433,23 +433,57 @@ const HTML = `<!DOCTYPE html>
       if (e.key === 'Enter') sendMessage();
     }
     
+    let recognition = null;
+    
     function toggleVoice() {
       const btn = document.getElementById('voice-btn');
       const status = document.getElementById('status');
+      const input = document.getElementById('chat-input');
       
-      isListening = !isListening;
-      
-      if (isListening) {
-        btn.classList.add('listening');
-        btn.textContent = '🔴';
-        status.textContent = 'Listening...';
-        status.className = 'status listening';
-        // Voice recognition would go here
+      if (!isListening) {
+        // Start listening
+        if (!recognition) {
+          recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+          recognition.continuous = false;
+          recognition.interimResults = false;
+          
+          recognition.onstart = () => {
+            isListening = true;
+            btn.classList.add('listening');
+            btn.textContent = '🔴';
+            status.textContent = 'Listening...';
+            status.className = 'status listening';
+          };
+          
+          recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            input.value = transcript;
+            sendMessage();
+          };
+          
+          recognition.onend = () => {
+            isListening = false;
+            btn.classList.remove('listening');
+            btn.textContent = '🎤';
+            status.textContent = 'Ready';
+            status.className = 'status connected';
+          };
+          
+          recognition.onerror = (event) => {
+            console.error('Speech error:', event.error);
+            isListening = false;
+            btn.classList.remove('listening');
+            btn.textContent = '🎤';
+            status.textContent = 'Error: ' + event.error;
+          };
+        }
+        
+        recognition.start();
       } else {
-        btn.classList.remove('listening');
-        btn.textContent = '🎤';
-        status.textContent = 'Ready';
-        status.className = 'status connected';
+        // Stop listening
+        if (recognition) {
+          recognition.stop();
+        }
       }
     }
   </script>
