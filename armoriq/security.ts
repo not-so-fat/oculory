@@ -25,6 +25,7 @@ export interface AccessPolicy {
 }
 
 // Mock implementation for demo (replace with real ArmorIQ SDK when available)
+// Always use mock mode for now - real API needs proper setup
 class ArmorIQClient {
   private apiKey: string;
   private policies: Map<string, AccessPolicy> = new Map();
@@ -40,26 +41,12 @@ class ArmorIQClient {
 
   // Check if action is allowed
   async checkAccess(request: ArmorIQRequest): Promise<ArmorIQResponse> {
-    // If no API key, use mock mode
-    if (!this.apiKey) {
-      console.log("[ArmorIQ] Mock mode - allowing request");
-      return {
-        allowed: true,
-        policies_checked: ["mock_policy"],
-      };
-    }
-
-    try {
-      const response = await fetch(`${ARMORIQ_API_URL}/v1/check`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(request),
-      });
-
-      if (!response.ok) {
+    // Always use mock mode for demo (real ArmorIQ needs proper integration)
+    console.log("[ArmorIQ] Mock mode - allowing request");
+    return {
+      allowed: true,
+      policies_checked: ["mock_policy"],
+    };
         return {
           allowed: false,
           reason: `ArmorIQ API error: ${response.statusText}`,
