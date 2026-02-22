@@ -207,7 +207,11 @@ function join(){
         document.getElementById('login-view').classList.add('hidden');
         document.getElementById('chat-view').classList.remove('hidden');
         document.getElementById('user-info').innerHTML='<strong>'+d.name+'</strong> | ArmorIQ: '+d.armorIQToken;
+      }else{
+        alert('Login failed');
       }
+    }).catch(e=>{
+      alert('Error: '+e);
     });
 }
 function logout(){location.reload();}
