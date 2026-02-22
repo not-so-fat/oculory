@@ -134,24 +134,21 @@ const searchTool = {
         return { error: "No documents loaded", results: [], count: 0 };
       }
     
-    // Skip ArmorIQ verification for now - just search
-    const docs = await loadDocs();
-    const filtered = docs.filter(d => {
-      const lo = !input.layers || input.layers.includes(d.layer);
-      const po = !input.projects || input.projects.includes(d.project);
-      return lo && po;
-    });
+      const filtered = docs.filter(d => {
+        const lo = !input.layers || input.layers.includes(d.layer);
+        const po = !input.projects || input.projects.includes(d.project);
+        return lo && po;
+      });
 
-    const q = input.query.toLowerCase().split(" ").filter(w => w.length > 2);
-    const results = filtered.map(d => {
-      let score = 0;
-      if (d.title.toLowerCase().includes(input.query.toLowerCase())) score += 15;
-      if (d.content.toLowerCase().includes(input.query.toLowerCase())) score += 3;
-      return { doc: d, score };
-    }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
+      const results = filtered.map(d => {
+        let score = 0;
+        if (d.title.toLowerCase().includes(input.query.toLowerCase())) score += 15;
+        if (d.content.toLowerCase().includes(input.query.toLowerCase())) score += 3;
+        return { doc: d, score };
+      }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
 
-    console.log("[Tool] Found", results.length, "results");
-    return { results: results.map(r => ({ title: r.doc.title, layer: r.doc.layer, content: r.doc.content.slice(300) })), count: results.length };
+      console.log("[Tool] Found", results.length, "results");
+      return { results: results.map(r => ({ title: r.doc.title, layer: r.doc.layer, content: r.doc.content.slice(300) })), count: results.length };
     } catch (e: any) {
       console.log("[Tool] Error:", e);
       return { error: String(e), results: [], count: 0 };
