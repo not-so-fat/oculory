@@ -154,24 +154,14 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are Yusuke talking to a friend. Respond naturally in Yusuke's voice. Answer based on the context. Keep it conversational, 1-2 sentences, under 20 words." },
+            { role: "system", content: "You are having a friendly voice conversation. Respond naturally as if you're talking to a friend. Answer the user's question based on the context. Keep it conversational, 1-2 sentences, under 20 words." },
             { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
           ],
           temperature: 0.8,
         }),
       });
       const voiceData = await voiceRes.json();
-      // Strip thinking tags and cap at 25 words
-      const voiceResponseRaw = (voiceData.choices?.[0]?.message?.content || noInfo)
-        .replace(/<think>[\s\S]*?</think>/gi, "");
-      const voiceWords = voiceResponseRaw.split(/\s+/);
-      const voiceResponse = voiceWords.length > 25
-        ? voiceWords.slice(0, 25).join(" ") + "."
-        : voiceResponseRaw;
-      const voiceWords = voiceResponseRaw.split(/\s+/);
-      const voiceResponse = voiceWords.length > 25 
-        ? voiceWords.slice(0, 25).join(" ") + "."
-        : voiceResponseRaw;
+      const voiceResponse = voiceData.choices?.[0]?.message?.content || noInfo;
 
       // 2. Text summary - detailed, for chat display
       const textRes = await fetch(`${MINIMAX_BASE_URL}/chat/completions`, {
@@ -183,15 +173,14 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are Yusuke. Provide a detailed answer in markdown format about Yusuke's knowledge. Include specific names, dates, numbers, and outcomes when available." },
+            { role: "system", content: "You are a helpful assistant. Provide a detailed answer in markdown format. Include specific names, dates, numbers, and outcomes when available." },
             { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
           ],
           temperature: 0.7,
         }),
       });
       const textData = await textRes.json();
-      const textSummary = (textData.choices?.[0]?.message?.content || noInfo)
-        .replace(/<think>[\s\S]*?</think>/gi, "");
+      const textSummary = textData.choices?.[0]?.message?.content || noInfo;
 
       console.log("[MiniMax] Voice:", voiceResponse.slice(0, 60));
       console.log("[MiniMax] Text:", textSummary.slice(0, 60));
@@ -414,7 +403,7 @@ const HTML = `<!DOCTYPE html>
 <body>
   <div class="container">
     <h1>Oculory</h1>
-    <p class="subtitle">Ask questions about Yusuke's knowledge</p>
+    <p class="subtitle">Ask questions about your friend's knowledge</p>
     
     <div id="invite-section">
       <input type="text" id="invite-code" placeholder="Enter invite code" />
@@ -430,7 +419,7 @@ const HTML = `<!DOCTYPE html>
       
       <div id="messages">
         <div class="message bot">
-          <div class="bubble">Hi! Ask me anything about Yusuke's knowledge base.</div>
+          <div class="bubble">Hi! Ask me anything about your friend's knowledge base.</div>
         </div>
       </div>
       
@@ -742,7 +731,7 @@ app.post("/vapi/webhook", async (req, res) => {
     case "conversation-start":
       // Return welcome message
       res.json({
-        response: "Hi! Ask me anything about Yusuke's knowledge base."
+        response: "Hi! Ask me anything about your friend's knowledge base."
       });
       return;
 
