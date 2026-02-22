@@ -125,7 +125,14 @@ const searchTool = {
     projects: z.array(z.string()).optional(),
   }),
   execute: async ({ input }: { input: { query: string; layers?: string[]; projects?: string[] } }) => {
-    console.log("[Tool] searchKnowledge called with:", input);
+    console.log("[Tool] searchKnowledge called, query:", input.query);
+    try {
+      const docs = await loadDocs();
+      console.log("[Tool] Loaded", docs.length, "documents");
+      
+      if (docs.length === 0) {
+        return { error: "No documents loaded", results: [], count: 0 };
+      }
     
     // Skip ArmorIQ verification for now - just search
     const docs = await loadDocs();
@@ -145,6 +152,10 @@ const searchTool = {
 
     console.log("[Tool] Found", results.length, "results");
     return { results: results.map(r => ({ title: r.doc.title, layer: r.doc.layer, content: r.doc.content.slice(300) })), count: results.length };
+    } catch (e: any) {
+      console.log("[Tool] Error:", e);
+      return { error: String(e), results: [], count: 0 };
+    }
   }
 };
 
