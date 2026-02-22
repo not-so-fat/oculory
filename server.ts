@@ -692,11 +692,11 @@ app.post("/api/query", async (req, res) => {
   res.json({
     success: true,
     query,
-    response: textSummary,
-    // Test mode: hardcoded voice for testing
-    voiceSummary: query.toLowerCase().includes("test voice") 
+response: textSummary,
+    // Quick fix: strip thinking tags and cap voice at 25 words
+    voiceSummary: query.toLowerCase().includes("test voice")
       ? "This is a test voice message. Hello! Can you hear me?"
-      : voiceResponse,
+      : (voiceResponse || "").replace(/<think>[\s\S]*?</think>/gi, "").split(" ").slice(0, 25).join(" ") + ".",
     sources: results.map(r => ({ title: r.title, layer: r.layer })),
     security: "approved"
   });
