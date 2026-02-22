@@ -527,11 +527,9 @@ const HTML = `<!DOCTYPE html>
     }
     
     function speak(text) {
-      console.log("speak() called, isSpeaking:", isSpeaking, "text:", text ? text.slice(0, 50) : "null");
-      if (isSpeaking) {
-        console.log("TTS skipped: already speaking");
-        return;
-      }
+      console.log("speak() called, text:", text ? text.slice(0, 30) : "null");
+      // Reset isSpeaking to fix stuck flag
+      isSpeaking = false;
       if (!text || !text.trim()) {
         console.log("TTS skipped: no text");
         return;
