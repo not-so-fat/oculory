@@ -744,9 +744,6 @@ messages.scrollTop = messages.scrollHeight;
       }
     }
 
-    function handleKeyPress(e) {
-      if (e.key === 'Enter') sendMessage();
-    }
   </script>
 </body>
 </html>`;
