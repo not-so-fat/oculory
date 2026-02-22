@@ -679,6 +679,7 @@ app.post("/api/query", async (req, res) => {
     });
     return;
   }
+  //*/
 
   console.log("[ArmorIQ] Access granted");
 
