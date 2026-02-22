@@ -689,7 +689,10 @@ app.post("/api/query", async (req, res) => {
     success: true,
     query,
     response: textSummary,
-    voiceSummary: voiceResponse,
+    // Test mode: hardcoded voice for testing
+    voiceSummary: query.toLowerCase().includes("test voice") 
+      ? "This is a test voice message. Hello! Can you hear me?"
+      : voiceResponse,
     sources: results.map(r => ({ title: r.title, layer: r.layer })),
     security: "approved"
   });
