@@ -268,9 +268,9 @@ app.post("/api/query", express.json(), async (req, res) => {
 IMPORTANT: Only search within these allowed resources.`;
 
   try {
-    const response = await agent.stream([{ role: "user", content: `${context}\n\nQuestion: ${query}` }]);
+    const response = await agent.stream([{ role: "user", content: `${context}\n\nQuestion: ${query}` }], { format: "aisdk" });
     let text = "";
-    for await (const chunk of response.text) { text += chunk; }
+    for await (const chunk of response.textStream) { text += chunk; }
     res.json({ response: text, plan: { goal: "search knowledge", steps: [{ action: "search", params: {} }] } });
   } catch (e) {
     res.json({ error: String(e) });
