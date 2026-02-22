@@ -521,9 +521,12 @@ const HTML = `<!DOCTYPE html>
         messages.appendChild(src);
       }
       
-      messages.scrollTop = messages.scrollHeight;
-      
-      if (type === 'bot' && voiceSummary) speak(voiceSummary);
+messages.scrollTop = messages.scrollHeight;
+
+      // Auto-play after a short delay
+      if (type === 'bot' && voiceSummary) {
+        setTimeout(() => speak(voiceSummary), 500);
+      }
     }
     
     function speak(text) {
