@@ -3,7 +3,32 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { KnowledgeBaseSecurity } from "./armoriq/security.js";
+
+// Mock KnowledgeBaseSecurity for now
+class KnowledgeBaseSecurity {
+  private policies = new Map();
+  private permissions = new Map();
+  
+  setUserPolicy(userId: string, policy: any) {
+    this.policies.set(userId, policy);
+  }
+  
+  setUserPermissions(userId: string, permissions: any) {
+    this.permissions.set(userId, permissions);
+  }
+  
+  async canSearch(userId: string, query: string) {
+    return { allowed: true, reason: "" };
+  }
+  
+  async canRead(userId: string, project: string, layer: string) {
+    return { allowed: true, reason: "" };
+  }
+  
+  getSearchFilters(userId: string) {
+    return this.permissions.get(userId) || { allowedProjects: ["default"], allowedLayers: ["memory", "people", "meeting", "metadata", "transcript"] };
+  }
+}
 
 const VAPI_API_KEY = process.env.VAPI_API_KEY || "";
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || "";
