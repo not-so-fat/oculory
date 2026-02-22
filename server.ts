@@ -24,7 +24,7 @@ class ArmorIQAccess {
   canRead(userId: string, project: string, layer: string): boolean {
     const policy = this.policies.get(userId);
     if (!policy) return false;
-    if (!policy.allowedProjects.includes(project) && !policy.allowedProjects.includes("default")) return false;
+    if (!policy.allowedProjects.includes(project)) return false;
     if (!policy.allowedLayers.includes(layer)) return false;
     return true;
   }
@@ -55,6 +55,13 @@ function getLayerFromPath(filePath: string): string {
   return "metadata";
 }
 
+function getProjectFromPath(filePath: string): string {
+  const p = filePath.toLowerCase();
+  if (p.includes("/personal/")) return "personal";
+  if (p.includes("/work/")) return "work";
+  return "default";
+}
+
 async function loadDocuments(): Promise<Doc[]> {
   if (GIST_URL) {
     try {
@@ -76,7 +83,7 @@ async function loadDocuments(): Promise<Doc[]> {
           try {
             const content = fs.readFileSync(fullPath, "utf-8");
             const { data, content: body } = matter(content);
-            if (body.trim()) docs.push({ layer: getLayerFromPath(fullPath), project: "default", title: (data.title as string) || entry.name.replace(".md", ""), content: body });
+            if (body.trim()) docs.push({ layer: getLayerFromPath(fullPath), project: getProjectFromPath(fullPath), title: (data.title as string) || entry.name.replace(".md", ""), content: body });
           } catch (e) { /* skip */ }
         }
       }
@@ -293,7 +300,7 @@ app.post("/api/query", express.json(), async function(req, res) {
   
   // Filter by ArmorIQ policy
   const accessibleDocs = docs.filter(d => {
-    const projectOk = filters.allowedProjects.includes(d.project) || filters.allowedProjects.includes("default");
+    const projectOk = filters.allowedProjects.includes(d.project);
     const layerOk = filters.allowedLayers.includes(d.layer);
     return projectOk && layerOk;
   });
