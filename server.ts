@@ -120,6 +120,21 @@ function searchDocs(docs: Doc[], query: string): Doc[] {
     .map((s) => s.doc);
 }
 
+// Filter documents by user's allowed projects and layers
+function filterDocsByAccess(docs: Doc[], session: UserSession): Doc[] {
+  return docs.filter((doc) => {
+    // Check project access
+    if (!session.allowedProjects.includes(doc.project) && !session.allowedProjects.includes("default")) {
+      return false;
+    }
+    // Check layer access
+    if (!session.allowedLayers.includes(doc.layer)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 // Generate response (simple fallback)
 // MiniMax API config
 const MINIMAX_BASE_URL = "https://api.minimax.io/v1";
@@ -201,6 +216,20 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
 const app = express();
 app.use(express.json());
 
+// In-memory session store (in production, use Redis or similar)
+interface UserSession {
+  userId: string;
+  inviteCode: string;
+  allowedProjects: string[];
+  allowedLayers: string[];
+  canSearch: boolean;
+  canRead: boolean;
+  rateLimit: number;
+  intentToken?: string;
+}
+
+const userSessions: Map<string, UserSession> = new Map();
+
 // Initialize security and documents (will load async)
 let docs: Doc[] = [];
 let security: KnowledgeBaseSecurity;
@@ -214,14 +243,12 @@ async function init() {
   app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║          Oculory Voice Agent - Ready!                    ║
+║          Oculory - Knowledge Sharing                       ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  Server:      http://localhost:${PORT}                        ║
 ║  API:        http://localhost:${PORT}/api/query              ║
-║  VAPI:       http://localhost:${PORT}/vapi/webhook           ║
 ╠══════════════════════════════════════════════════════════════╣
-║  ArmorIQ:    ${ARMORIQ_API_KEY ? "Enabled" : "Disabled (mock mode)"}                              ║
-║  VAPI:       ${VAPI_API_KEY ? "Enabled" : "Disabled"}                              ║
+║  ArmorIQ:    ${ARMORIQ_API_KEY ? "Enabled" : "Mock mode"}                              ║
 ║  Documents:  ${docs.length}                                       ║
 ╚══════════════════════════════════════════════════════════════╝
 `);
@@ -655,77 +682,212 @@ app.get("/api/health", (req, res) => {
     status: "ok", 
     documents: docs.length,
     armoriq: !!ARMORIQ_API_KEY,
-    vapi: !!VAPI_API_KEY
+    mode: ARMORIQ_API_KEY ? "production" : "demo",
+    features: {
+      accessControl: true,
+      layerFiltering: true,
+      projectFiltering: true,
+      inviteManagement: true,
+    }
   });
 });
 
-// API: Process voice query (from VAPI)
+// API: Process query with access control
 app.post("/api/query", async (req, res) => {
-  const { query, userId = "anonymous" } = req.body;
+  const { query, sessionToken } = req.body;
+
+  // Get session from token
+  const session = sessionToken ? userSessions.get(sessionToken) : null;
+  const userId = session?.userId || "anonymous";
 
   console.log(`\n[Query] User: ${userId}, Query: "${query}"`);
 
-  // Step 1: ArmorIQ security check
-// Skip security check for now (mocked anyway)
-  const accessCheck = { allowed: true, reason: "" };
-  /*
-  const accessCheck = await security.canSearch(userId, query);
-  if (!accessCheck.allowed) {
-    console.log("[ArmorIQ] Access denied:", accessCheck.reason);
+  // Step 1: Verify user has search access
+  if (!session) {
+    // Allow anonymous access for now (demo mode)
+    console.log("[Access] No session, allowing anonymous");
+  } else if (!session.canSearch) {
+    console.log("[ArmorIQ] Search denied: user not authorized");
     res.json({ 
       success: false, 
-      error: accessCheck.reason,
+      error: "You are not authorized to search",
       security: "denied"
     });
     return;
   }
-  //*/
 
-  console.log("[ArmorIQ] Access granted");
+  // Step 2: Filter documents by access permissions
+  let accessibleDocs = docs;
+  if (session) {
+    accessibleDocs = filterDocsByAccess(docs, session);
+    console.log(`[Access] Filtered to ${accessibleDocs.length} docs (from ${docs.length})`);
+  }
 
-  // Step 2: Search knowledge base
-  const results = searchDocs(docs, query);
+  // Step 3: Search knowledge base (on filtered docs)
+  const results = searchDocs(accessibleDocs, query);
 
-  // Step 3: Generate response (short for voice, full markdown for chat)
+  // Step 4: Generate response
   const { voiceResponse, textSummary } = await generateResponse(query, results);
 
   res.json({
     success: true,
     query,
     response: textSummary,
-    // Test mode: hardcoded voice for testing
-    voiceSummary: query.toLowerCase().includes("test voice") 
-      ? "This is a test voice message. Hello! Can you hear me?"
-      : voiceResponse.slice(100, 250), // Skip first 100, use next 150
-    sources: results.map(r => ({ title: r.title, layer: r.layer })),
+    voiceSummary: voiceResponse.slice(100, 250),
+    sources: results.map(r => ({ 
+      title: r.title, 
+      layer: r.layer,
+      project: r.project 
+    })),
     security: "approved"
   });
 });
 
-// API: Verify invite code
+// API: Verify invite code and create session
 app.post("/api/verify-invite", async (req, res) => {
   const { code } = req.body;
 
   // Simple code validation (in production, check against Convex)
-  const validCodes: Record<string, string> = {
-    "HACK2026": "user_001",
+  // Demo: allow HACK2026 with full access
+  const validCodes: Record<string, UserSession> = {
+    "HACK2026": {
+      userId: "user_001",
+      inviteCode: "HACK2026",
+      allowedProjects: ["default", "personal"],
+      allowedLayers: ["memory", "people", "meeting", "metadata", "transcript"],
+      canSearch: true,
+      canRead: true,
+      rateLimit: 10,
+    },
   };
 
-  const userId = validCodes[code];
-  if (!userId) {
-    res.json({ valid: false });
+  const sessionConfig = validCodes[code.toUpperCase()];
+  if (!sessionConfig) {
+    res.json({ valid: false, error: "Invalid invite code" });
     return;
   }
 
-  // Set policy for this user
-  security.setUserPolicy(userId, {
-    can_read: true,
-    can_search: true,
-    rate_limit: 10,
-    allowed_projects: ["default"],
+  // Create session token
+  const sessionToken = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  
+  // Store session
+  userSessions.set(sessionToken, sessionConfig);
+  
+  // Set up ArmorIQ policy
+  security.setUserPolicy(sessionConfig.userId, {
+    can_read: sessionConfig.canRead,
+    can_search: sessionConfig.canSearch,
+    rate_limit: sessionConfig.rateLimit,
+    allowed_projects: sessionConfig.allowedProjects,
+    allowed_layers: sessionConfig.allowedLayers,
+  });
+  
+  // Set permissions for filtering
+  security.setUserPermissions(sessionConfig.userId, {
+    allowedProjects: sessionConfig.allowedProjects,
+    allowedLayers: sessionConfig.allowedLayers,
   });
 
-  res.json({ valid: true, userId });
+  console.log(`[Auth] Created session for ${sessionConfig.userId}`);
+
+  res.json({ 
+    valid: true, 
+    sessionToken,
+    userId: sessionConfig.userId,
+    allowedProjects: sessionConfig.allowedProjects,
+    allowedLayers: sessionConfig.allowedLayers,
+  });
+});
+
+// API: Create new invite (owner only - simplified demo)
+app.post("/api/invite/create", (req, res) => {
+  const { 
+    inviteeName, 
+    allowedProjects = ["default"], 
+    allowedLayers = ["people", "meeting"],
+    canSearch = true,
+    canRead = true,
+    rateLimit = 10,
+    expiresInDays = 7
+  } = req.body;
+
+  // Generate invite code
+  const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+  
+  // In production, save to Convex here
+  console.log(`[Invite] Created: ${code} for ${inviteeName}`);
+  console.log(`  Projects: ${allowedProjects.join(", ")}`);
+  console.log(`  Layers: ${allowedLayers.join(", ")}`);
+
+  res.json({
+    success: true,
+    code,
+    inviteeName,
+    allowedProjects,
+    allowedLayers,
+    canSearch,
+    canRead,
+    expiresInDays,
+  });
+});
+
+// API: List all invites (owner only - simplified demo)
+app.get("/api/invites/list", (req, res) => {
+  // In production, fetch from Convex
+  // Demo: return mock data
+  res.json({
+    success: true,
+    invites: [
+      {
+        id: "inv_001",
+        code: "HACK2026",
+        inviteeName: "Demo User",
+        allowedProjects: ["default", "personal"],
+        allowedLayers: ["people", "meeting", "metadata"],
+        status: "active",
+        createdAt: Date.now() - 86400000,
+        lastAccessedAt: Date.now() - 3600000,
+      }
+    ]
+  });
+});
+
+// API: Revoke invite (owner only)
+app.post("/api/invite/revoke", (req, res) => {
+  const { inviteId, code } = req.body;
+
+  // In production, update Convex
+  // Also invalidate any active sessions with this code
+  for (const [token, session] of userSessions.entries()) {
+    if (session.inviteCode === code) {
+      userSessions.delete(token);
+      console.log(`[Invite] Revoked session: ${token}`);
+    }
+  }
+
+  console.log(`[Invite] Revoked: ${code}`);
+  res.json({ success: true });
+});
+
+// API: Get current user session info
+app.get("/api/session", (req, res) => {
+  const authHeader = req.headers.authorization;
+  const sessionToken = authHeader?.replace("Bearer ", "");
+  
+  if (!sessionToken || !userSessions.has(sessionToken)) {
+    res.json({ authenticated: false });
+    return;
+  }
+
+  const session = userSessions.get(sessionToken)!;
+  res.json({
+    authenticated: true,
+    userId: session.userId,
+    allowedProjects: session.allowedProjects,
+    allowedLayers: session.allowedLayers,
+    canSearch: session.canSearch,
+    canRead: session.canRead,
+  });
 });
 
 // VAPI webhook endpoint

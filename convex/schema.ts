@@ -22,29 +22,58 @@ export default defineSchema({
     filePath: v.string(),
     title: v.string(),
     content: v.string(),
-    frontmatter: v.any(), // Store parsed frontmatter
+    frontmatter: v.any(),
     lastSyncedAt: v.number(),
   })
     .index("layer", ["layer"])
     .index("project", ["project"])
     .index("layer_project", ["layer", "project"]),
 
-  // Invitations for friends
+  // Invitations for friends - ENHANCED with granular permissions
   invites: defineTable({
     code: v.string(),
     inviterId: v.id("users"),
     inviteeName: v.string(),
     inviteeEmail: v.optional(v.string()),
+    
+    // Project-based access control
     allowedProjects: v.array(v.string()),
+    
+    // Layer-based access control (NEW)
+    allowedLayers: v.array(v.string()),
+    
+    // Permission flags (NEW)
+    canSearch: v.boolean(),
+    canRead: v.boolean(),
+    
+    // Rate limiting (NEW)
+    rateLimit: v.number(),
+    
+    // Invite status
+    status: v.union(
+      v.literal("active"),
+      v.literal("revoked"),
+      v.literal("expired")
+    ),
+    
     createdAt: v.number(),
     expiresAt: v.number(),
-  }).index("code", ["code"]),
+    lastAccessedAt: v.optional(v.number()),
+  })
+    .index("code", ["code"])
+    .index("inviterId", ["inviterId"])
+    .index("status", ["status"]),
 
-  // Access policies per invite
-  access_policies: defineTable({
+  // Access logs for audit (NEW)
+  access_logs: defineTable({
     inviteId: v.id("invites"),
-    project: v.string(),
-    canRead: v.boolean(),
-    canSearch: v.boolean(),
-  }),
+    action: v.string(), // "login", "search", "read"
+    query: v.optional(v.string()),
+    result: v.string(), // "success", "denied", "error"
+    deniedReason: v.optional(v.string()),
+    timestamp: v.number(),
+    ipAddress: v.optional(v.string()),
+  })
+    .index("inviteId", ["inviteId"])
+    .index("timestamp", ["timestamp"]),
 });

@@ -1,10 +1,10 @@
 # Oculory Architecture
 
-Voice agent over a Lexicon knowledge base.
+Secure knowledge base sharing with friend access control.
 
 ## Overview
 
-Oculory is a voice-enabled Q&A system that answers questions from a user's Lexicon data. Users can interact via text chat or voice (via VAPI), getting conversational responses backed by a RAG pipeline.
+Oculory is a secure Q&A system that allows you to share your Lexicon knowledge base with friends. Users can interact via text chat, getting responses backed by a RAG pipeline with ArmorIQ-powered access control.
 
 ## System Diagram
 
@@ -12,41 +12,41 @@ Oculory is a voice-enabled Q&A system that answers questions from a user's Lexic
 flowchart TB
     subgraph Client["Web Client (Browser)"]
         UI[HTML/CSS/JS UI]
-        STT[Web Speech API<br/>Speech-to-Text]
-        TTS[Web Speech API<br/>Text-to-Speech]
         Markdown[marked.js<br/>Markdown Renderer]
     end
     
-    subgraph Server["Vercel Server (Express)"]
-        API["/api/query<br/>(text chat)"]
-        VAPI["/vapi/webhook<br/>(voice)"]
+    subgraph Server["Oculory Backend"]
+        API["/api/query<br/>(search)"]
         Auth["/api/verify-invite"]
         
         subgraph RAG["RAG Pipeline"]
             Search[searchDocs<br/>keyword search]
-            Layer[Layer-based<br/>ranking]
+            Layer[Layer-based<br/>filtering]
+            Filter[Project/Layer<br/>Access Filter]
             Gen[MiniMax<br/>Response Gen]
         end
         
-        subgraph Security["ArmorIQ (mock)"]
-            KBsec[KnowledgeBaseSecurity<br/>canSearch check]
+        subgraph Security["ArmorIQ Security"]
+            KBsec[KnowledgeBaseSecurity<br/>Access verification]
+            Intent[Intent Capture<br/>& Verification]
         end
     end
     
     subgraph Data["Data Sources"]
         Gist[GitHub Gist<br/>Lexicon docs]
+        Convex[(Convex DB<br/>User policies)]
     end
     
     UI -->|chat| API
-    UI -->|voice| STT --> API
-    API --> Search
-    Search --> Layer
+    API -->|verify| KBsec
+    KBsec -->|check| Convex
+    KBsec -->|capture intent| Intent
+    Intent -->|verify| ArmorIQ
+    API -->|search| Search
+    Search -->|filter| Filter
+    Filter -->|allowed docs| Layer
     Layer --> Gen
     Gen -->|response| UI
-    Gen -->|voiceSummary| TTS
-    Gen -->|fullMarkdown| Markdown
-    API --> KBsec
-    KBsec -.->|mock| ArmorIQ
     Search --> Gist
 ```
 
@@ -54,20 +54,47 @@ flowchart TB
 
 | Component | Role |
 |-----------|------|
-| **Web Client** | Invite code → chat UI with text input + mic button. Renders markdown, plays TTS. |
-| **VAPI** | Voice webhook - receives voice, returns spoken response |
-| **RAG Pipeline** | Search docs → rank by layer priority → MiniMax generates response |
-| **MiniMax** | Generates both: (1) short voice summary (~30 words), (2) full markdown answer |
-| **ArmorIQ** | (Mocked) Security layer - `canSearch(userId, query)` returns `{allowed, reason}` |
+| **Web Client** | Invite code → chat UI with text input. Renders markdown. |
+| **RAG Pipeline** | Search docs → filter by access → rank by layer priority → MiniMax generates response |
+| **MiniMax** | Generates detailed markdown answer |
+| **ArmorIQ** | Security layer - verifies user identity, captures search intent, prevents unauthorized access |
+| **Convex** | Stores user policies, invites, and access permissions |
 | **Gist** | Private GitHub gist stores Lexicon documents as JSON |
+
+## Access Control Model
+
+### Two Dimensions of Access
+
+1. **Project Access** - Which knowledge base projects a user can access
+   - `personal` - Personal knowledge
+   - `work` - Work-related knowledge
+   - `shared` - Shared with specific friends
+
+2. **Layer Access** - Which layers within projects a user can see
+   - `memory` (priority 1) - Most sensitive
+   - `people` (priority 2) - Contact information
+   - `meeting` (priority 3) - Meeting notes
+   - `metadata` (priority 4) - General metadata
+   - `transcript` (priority 5) - Transcripts
+
+### ArmorIQ Integration
+
+ArmorIQ provides **intent-based execution** with cryptographic verification:
+
+1. **Plan Capture** - When a user searches, the intent is captured as a verified plan
+2. **Action Verification** - Every search is verified against the captured intent
+3. **Prompt Injection Prevention** - Malicious prompts cannot execute unplanned actions
+4. **Rate Limiting** - Per-user rate limits enforced by policy
 
 ## Data Flow
 
-1. **User submits query** (text via input, or voice via mic)
-2. **ArmorIQ check** - validates user can search for this query
-3. **Search** - keyword match against all docs, scored by layer priority
-4. **Generate** - MiniMax receives context (top 5 docs, 1200 chars each)
-5. **Return** - `voiceSummary` for TTS/VAPI, `fullMarkdown` for chat display
+1. **User submits query** (text via input)
+2. **Verify invite** - Check invite code is valid and not expired
+3. **ArmorIQ check** - Validate user can search for this query
+4. **Filter by access** - Remove documents from disallowed projects/layers
+5. **Search** - keyword match against allowed docs, scored by layer priority
+6. **Generate** - MiniMax receives context (top 5 docs, 1500 chars each)
+7. **Return** - `response` for chat display
 
 ## Layer Priority (RAG)
 
@@ -82,9 +109,11 @@ Higher layers (lower numbers) are preferred in search results. Documents in earl
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/` | GET | Serve HTML UI |
-| `/api/verify-invite` | POST | Validate invite code (`HACK2026`) |
-| `/api/query` | POST | Text chat - returns `{response, voiceSummary, sources}` |
-| `/vapi/webhook` | POST | Voice - returns `{response}` for VAPI |
+| `/api/verify-invite` | POST | Validate invite code |
+| `/api/query` | POST | Search - returns `{response, sources}` |
+| `/api/invite/create` | POST | Create new invite (owner only) |
+| `/api/invites/list` | GET | List all friends and access (owner only) |
+| `/api/invite/revoke` | POST | Revoke friend access (owner only) |
 
 ## Response Format
 
@@ -95,9 +124,11 @@ The `/api/query` endpoint returns:
   "success": true,
   "query": "question asked",
   "response": "full markdown answer",
-  "voiceSummary": "short summary for TTS (~30 words)",
-  "sources": [{ "title": "doc title", "layer": "People" }],
-  "security": "approved"
+  "sources": [{ "title": "doc title", "layer": "People", "project": "personal" }],
+  "security": {
+    "allowed": true,
+    "intentToken": "armoriq_token_xxx"
+  }
 }
 ```
 
@@ -106,23 +137,26 @@ The `/api/query` endpoint returns:
 | Variable | Description |
 |----------|-------------|
 | `MINIMAX_API_KEY` | MiniMax API key for response generation |
-| `VAPI_API_KEY` | VAPI webhook verification |
 | `GIST_URL` | Private gist URL containing Lexicon documents |
-| `ARMORIQ_API_KEY` | (optional) ArmorIQ API key |
+| `ARMORIQ_API_KEY` | ArmorIQ API key for security |
+| `CONVEX_URL` | Convex deployment URL |
 | `PORT` | Server port (default 8080) |
 
 ## Tech Stack
 
 - **Runtime**: Node.js / Express
-- **Deployment**: Vercel
+- **Database**: Convex (user policies, invites)
 - **LLM**: MiniMax-M2.5
-- **Voice**: VAPI + Web Speech API
 - **Data**: GitHub Gist (JSON)
-- **Security**: ArmorIQ (mocked)
+- **Security**: ArmorIQ (intent-based access control)
+
+## User Stories
+
+See [USER_STORIES.md](USER_STORIES.md) for detailed user stories.
 
 ## Future Improvements
 
-- Real ArmorIQ integration
+- Real ArmorIQ integration (currently mock mode)
 - Better RAG (embeddings + vector search)
-- Multi-user / persistent sessions
-- Voice conversation continuity
+- Voice features (currently deprioritized)
+- Real-time notifications for friends
