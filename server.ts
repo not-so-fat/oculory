@@ -628,7 +628,7 @@ const HTML = `<!DOCTYPE html>
         messages.appendChild(src);
       }
       
-messages.scrollTop = messages.scrollHeight;
+      messages.scrollTop = messages.scrollHeight;
 
       // Auto-play after a short delay
       if (type === 'bot' && voiceSummary) {
