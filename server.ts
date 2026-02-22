@@ -150,9 +150,11 @@ const searchTool = {
   }
 };
 
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+
 const agent = new Agent({
   name: "knowledge-agent",
-  model: { provider: "miniMax", name: "MiniMax-M2.5", apiKey: MINIMAX_API_KEY },
+  model: { provider: "openai", name: "gpt-4o-mini", apiKey: OPENAI_API_KEY },
   tools: [searchTool],
   instructions: `You are a knowledge assistant. 
 Before searching, create a plan with specific layers and projects.
