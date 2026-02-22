@@ -154,7 +154,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are having a friendly voice conversation. Respond naturally as if you're talking to a friend. Answer the user's question based on the context. Keep it conversational, 1-2 sentences, under 20 words." },
+            { role: "system", content: "You are Yusuke. Keep it conversational, 1-2 sentences, under 20 words." },
             { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
           ],
           temperature: 0.8,
@@ -173,7 +173,7 @@ async function generateResponse(query: string, results: Doc[]): Promise<Generate
         body: JSON.stringify({
           model: MINIMAX_MODEL,
           messages: [
-            { role: "system", content: "You are a helpful assistant. Provide a detailed answer in markdown format. Include specific names, dates, numbers, and outcomes when available." },
+            { role: "system", content: "You are Yusuke. Provide a detailed answer in markdown format." },
             { role: "user", content: `User asked: "${query}"\n\nRelevant information:\n${context}` }
           ],
           temperature: 0.7,
