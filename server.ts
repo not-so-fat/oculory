@@ -696,7 +696,7 @@ app.post("/api/query", async (req, res) => {
     // Test mode: hardcoded voice for testing
     voiceSummary: query.toLowerCase().includes("test voice") 
       ? "This is a test voice message. Hello! Can you hear me?"
-      : voiceResponse.slice(0, 150), // Cap voice at 150 chars
+      : voiceResponse.slice(-150), // Take last 150 chars (after thinking)
     sources: results.map(r => ({ title: r.title, layer: r.layer })),
     security: "approved"
   });
