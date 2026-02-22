@@ -436,6 +436,15 @@ const HTML = `<!DOCTYPE html>
       <input type="text" id="invite-code" placeholder="Enter invite code" />
       <button class="btn-primary" onclick="joinChat()">Join Chat</button>
       <p class="error" id="invite-error"></p>
+      
+      <hr style="border-color: var(--cyber-teal); margin: 20px 0; opacity: 0.3;" />
+      
+      <p style="color: var(--card-gray); margin-bottom: 10px;">Owner? <a href="#" onclick="showOwnerLogin(); return false;" style="color: var(--cyber-gold);">Login here</a></p>
+      <div id="owner-login-section" style="display: none;">
+        <input type="password" id="owner-code" placeholder="Owner code" />
+        <button class="btn-secondary" onclick="ownerLogin()">Login</button>
+        <p class="error" id="owner-error"></p>
+      </div>
     </div>
     
     <div id="chat-section">
@@ -493,6 +502,95 @@ const HTML = `<!DOCTYPE html>
       } catch (e) {
         errorEl.textContent = 'Error joining chat';
       }
+    }
+    
+    function showOwnerLogin() {
+      document.getElementById('owner-login-section').style.display = 'block';
+    }
+    
+    async function ownerLogin() {
+      const code = document.getElementById('owner-code').value;
+      const errorEl = document.getElementById('owner-error');
+      
+      if (code === 'OWNER2026') {
+        // Show owner dashboard
+        document.getElementById('invite-section').style.display = 'none';
+        document.getElementById('chat-section').style.display = 'none';
+        
+        // Create owner dashboard HTML
+        const container = document.querySelector('.container');
+        container.innerHTML = `
+          <h1>Oculory</h1>
+          <p class="subtitle">Owner Dashboard</p>
+          <div style="text-align: left; margin-top: 20px;">
+            <button class="btn-primary" onclick="createInvite()">Create New Invite</button>
+            <button class="btn-secondary" onclick="listInvites()">View Invites</button>
+            <button class="btn-secondary" onclick="logout()">Logout</button>
+          </div>
+          <div id="owner-content" style="margin-top: 20px; text-align: left; color: var(--card-gray);"></div>
+        `;
+      } else {
+        errorEl.textContent = 'Invalid owner code';
+      }
+    }
+    
+    async function createInvite() {
+      const name = prompt('Friend name:');
+      if (!name) return;
+      
+      const projects = prompt('Projects (comma separated, e.g., default,personal):', 'default');
+      const layers = prompt('Layers (comma separated, e.g., people,meeting):', 'people,meeting');
+      
+      try {
+        const res = await fetch('/api/invite/create', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            inviteeName: name,
+            allowedProjects: projects.split(',').map(s => s.trim()),
+            allowedLayers: layers.split(',').map(s => s.trim()),
+            canSearch: true,
+            canRead: true,
+            rateLimit: 10
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Invite created! Code: ' + data.code + '\n\nThis code has been copied to clipboard.');
+          navigator.clipboard.writeText(data.code);
+        }
+      } catch (e) {
+        alert('Error creating invite');
+      }
+    }
+    
+    async function listInvites() {
+      try {
+        const res = await fetch('/api/invites/list');
+        const data = await res.json();
+        
+        let html = '<h3 style="color: var(--cyber-teal); margin-top: 20px;">Your Invites</h3>';
+        if (data.invites && data.invites.length > 0) {
+          data.invites.forEach(invite => {
+            html += \`<div style="background: rgba(146, 228, 221, 0.1); padding: 15px; margin: 10px 0; border-radius: 8px;">
+              <strong>\${invite.inviteeName}</strong><br/>
+              Code: <code>\${invite.code}</code><br/>
+              Status: \${invite.status}<br/>
+              Projects: \${invite.allowedProjects?.join(', ') || 'default'}<br/>
+              Layers: \${invite.allowedLayers?.join(', ') || 'all'}
+            </div>\`;
+          });
+        } else {
+          html += '<p>No invites yet.</p>';
+        }
+        document.getElementById('owner-content').innerHTML = html;
+      } catch (e) {
+        alert('Error loading invites');
+      }
+    }
+    
+    function logout() {
+      window.location.reload();
     }
     
     async function sendMessage() {
