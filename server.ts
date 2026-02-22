@@ -56,10 +56,21 @@ function getLayerFromPath(filePath: string): string {
 }
 
 function getProjectFromPath(filePath: string): string {
-  const p = filePath.toLowerCase();
-  if (p.includes("/personal/")) return "personal";
-  if (p.includes("/work/")) return "work";
-  return "default";
+  // Extract project from path like: /data/Transcripts/Fireflies/personal/ -> personal
+  const parts = filePath.split(path.sep);
+  // Look for known project folders
+  const knownProjects = ['personal', 'work', 'fireflies', 'manual'];
+  for (const part of parts) {
+    if (knownProjects.includes(part.toLowerCase())) {
+      return part.toLowerCase();
+    }
+  }
+  // Default to the first subfolder after layer name
+  const layerIndex = parts.findIndex(p => ['memory', 'people', 'meetings', 'metadata', 'transcripts'].includes(p.toLowerCase()));
+  if (layerIndex >= 0 && parts[layerIndex + 1]) {
+    return parts[layerIndex + 1].toLowerCase();
+  }
+  return 'unknown';
 }
 
 async function loadDocuments(): Promise<Doc[]> {
@@ -128,14 +139,14 @@ const users = new Map([
   ["USER001", { 
     name: "Full Access User", 
     code: "FULL2026", 
-    projects: ["default", "personal"], 
+    projects: ["personal", "fireflies", "manual", "career", "dotdata", "non-work", "unknown"], 
     layers: ["memory", "people", "meeting", "metadata", "transcript"] 
   }],
   ["USER002", { 
-    name: "Limited User (Metadata + Aaron)", 
+    name: "Limited User (Metadata + People only)", 
     code: "LIMITED2026", 
-    projects: ["default"], 
-    layers: ["metadata", "people"]  // Can only see Metadata layer and People layer (for Aaron)
+    projects: ["unknown"],  // Only root-level docs
+    layers: ["metadata", "people"]  // Only these layers
   }]
 ]);
 
