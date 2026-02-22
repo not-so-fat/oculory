@@ -403,7 +403,7 @@ const HTML = `<!DOCTYPE html>
 <body>
   <div class="container">
     <h1>Oculory</h1>
-    <p class="subtitle">Ask questions about your friend's knowledge</p>
+    <p class="subtitle">Ask questions about your Yusuke's's knowledge</p>
     
     <div id="invite-section">
       <input type="text" id="invite-code" placeholder="Enter invite code" />
@@ -419,7 +419,7 @@ const HTML = `<!DOCTYPE html>
       
       <div id="messages">
         <div class="message bot">
-          <div class="bubble">Hi! Ask me anything about your friend's knowledge base.</div>
+          <div class="bubble">Hi! Ask me anything about your Yusuke's's knowledge base.</div>
         </div>
       </div>
       
@@ -738,7 +738,7 @@ app.post("/vapi/webhook", async (req, res) => {
     case "conversation-start":
       // Return welcome message
       res.json({
-        response: "Hi! Ask me anything about your friend's knowledge base."
+        response: "Hi! Ask me anything about your Yusuke's's knowledge base."
       });
       return;
 
