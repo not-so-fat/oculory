@@ -147,13 +147,6 @@ const searchTool = {
     return { results: results.map(r => ({ title: r.doc.title, layer: r.doc.layer, content: r.doc.content.slice(300) })), count: results.length };
   }
 };
-      if (d.content.toLowerCase().includes(input.query.toLowerCase())) score += 3;
-      return { doc: d, score };
-    }).filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5);
-
-    return { results: results.map(r => ({ title: r.doc.title, layer: r.doc.layer, content: r.doc.content.slice(300) })), count: results.length };
-  }
-};
 
 const agent = new Agent({
   name: "knowledge-agent",
